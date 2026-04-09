@@ -214,3 +214,52 @@ def test_voyage_embed_single_is_normalized():
     vec = embed_single("Normalize me.")
     norm = np.linalg.norm(vec)
     assert abs(norm - 1.0) < 1e-4
+
+
+def test_lexical_similarity_identical():
+    from app.pipeline.similarity import compute_lexical_similarity
+    score = compute_lexical_similarity("the quick brown fox", "the quick brown fox")
+    assert score > 0.99
+
+
+def test_lexical_similarity_unrelated():
+    from app.pipeline.similarity import compute_lexical_similarity
+    score = compute_lexical_similarity("invoice total amount due", "sunny weather forecast london")
+    assert score < 0.1
+
+
+def test_lexical_similarity_empty():
+    from app.pipeline.similarity import compute_lexical_similarity
+    score = compute_lexical_similarity("", "some text")
+    assert score == 0.0
+
+
+def test_semantic_similarity_related_scores_higher_than_unrelated():
+    from app.pipeline.similarity import compute_semantic_similarity
+    sim_related = compute_semantic_similarity(
+        "invoice total is five thousand dollars",
+        "total amount due 5000 usd"
+    )
+    sim_unrelated = compute_semantic_similarity(
+        "invoice total is five thousand dollars",
+        "the cat sat on the mat"
+    )
+    assert sim_related > sim_unrelated
+
+
+def test_entity_similarity_full_overlap():
+    from app.pipeline.similarity import compute_entity_similarity
+    e = {"dates": ["2024-01-15"], "amounts": ["$4,500.00"], "ids": ["INV-001"]}
+    assert compute_entity_similarity(e, e) == 1.0
+
+
+def test_entity_similarity_no_overlap():
+    from app.pipeline.similarity import compute_entity_similarity
+    e1 = {"amounts": ["$4,500.00"]}
+    e2 = {"amounts": ["$1,000.00"]}
+    assert compute_entity_similarity(e1, e2) == 0.0
+
+
+def test_entity_similarity_empty():
+    from app.pipeline.similarity import compute_entity_similarity
+    assert compute_entity_similarity({}, {}) == 1.0
