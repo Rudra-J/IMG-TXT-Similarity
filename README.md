@@ -18,31 +18,48 @@ that is fast, interpretable, and deployable on CPU hardware.
 
 ## Architecture Overview
 
-```
-[Input: text file or image]
-        ↓
-[OCR] ← image inputs only (EasyOCR)
-        ↓
-[Preprocess] ← both inputs, identical normalization
-        ↓
-[Feature Extraction]
-  ├── Semantic embeddings (MiniLM-L6-v2 — local, no API key required)
-  ├── TF-IDF vectors
-  ├── Regex entities (dates, amounts, IDs)
-  ├── spaCy NER (persons, orgs, locations)
-  └── Layout heuristics (zone classification)
-        ↓
-[Similarity Computation]
-  ├── Lexical similarity (TF-IDF cosine)
-  ├── Semantic similarity (embedding cosine)
-  └── Entity similarity (Jaccard overlap)
-        ↓
-[Score Aggregation]
-  final = 0.40×semantic + 0.35×entity + 0.15×lexical ± 0.10×layout
-        ↓
-[Explainability Output]
-  JSON: scores, entities, mismatches, explanation
-  HTML: score bars, entity table, mismatch highlights
+```mermaid
+flowchart TD
+    subgraph IN["Input — POST /compare"]
+        M{{"mode"}}
+        TXT["text file (.txt)"]
+        IMG["image file (.png/.jpg)"]
+    end
+
+    OCR["EasyOCR\nextract_text_from_image()"]
+    PRE["preprocess()\nnormalize · denoise · preserve IDs & amounts"]
+
+    subgraph FE["Feature Extraction"]
+        A["Semantic Embeddings\nMiniLM-L6-v2 / Voyage-3"]
+        B["TF-IDF Vectors"]
+        C["Regex Entities\ndates · amounts · IDs"]
+        D["spaCy NER\nPERSON · ORG · GPE"]
+        E["Layout Heuristics\ntop / middle / bottom zones"]
+    end
+
+    subgraph SC["Similarity Computation"]
+        F["semantic_similarity()"]
+        G["lexical_similarity()"]
+        H["entity_similarity()"]
+        I["layout_adjustment()"]
+    end
+
+    FINAL["combine_scores()\n0.40 × semantic + 0.35 × entity + 0.15 × lexical ± 0.10 × layout"]
+
+    subgraph OUT["Explainability Output"]
+        J["JSON\nscores · entities · mismatches · explanation"]
+        K["HTML Report\nscore bars · entity table · mismatch highlights"]
+    end
+
+    M -->|"text-image / text-text"| TXT --> PRE
+    M -->|"text-image / image-image"| IMG --> OCR --> PRE
+    PRE --> A & B & C & D & E
+    A --> F
+    B --> G
+    C & D --> H
+    E --> I
+    F & G & H & I --> FINAL
+    FINAL --> J & K
 ```
 
 ---
