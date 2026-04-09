@@ -59,3 +59,50 @@ def test_preprocess_preserves_date():
     from app.pipeline.preprocess import preprocess
     result = preprocess("Date: 2024-01-15")
     assert "2024-01-15" in result
+
+
+def test_compute_layout_features_zones():
+    from app.pipeline.features import compute_layout_features
+    lines = [(f"line {i}", []) for i in range(9)]
+    features = compute_layout_features(lines)
+    assert features[0]["zone"] == "top"
+    assert features[4]["zone"] == "middle"
+    assert features[8]["zone"] == "bottom"
+
+
+def test_compute_layout_features_line_index():
+    from app.pipeline.features import compute_layout_features
+    lines = [("a", []), ("b", []), ("c", [])]
+    features = compute_layout_features(lines)
+    assert features[0]["line_index"] == 0
+    assert features[2]["line_index"] == 2
+
+
+def test_compute_layout_features_empty():
+    from app.pipeline.features import compute_layout_features
+    assert compute_layout_features([]) == []
+
+
+def test_compute_layout_features_from_text():
+    from app.pipeline.features import compute_layout_features_from_text
+    text = "line one\nline two\nline three"
+    features = compute_layout_features_from_text(text)
+    assert len(features) == 3
+    assert features[0]["text"] == "line one"
+
+
+def test_compute_layout_adjustment_identical_docs():
+    from app.pipeline.features import compute_layout_features_from_text, compute_layout_adjustment
+    text = "header\nbody line 1\nbody line 2\nfooter total"
+    f = compute_layout_features_from_text(text)
+    adj = compute_layout_adjustment(f, f)
+    # Identical layout should give a positive or zero adjustment
+    assert adj >= 0.0
+
+
+def test_compute_layout_adjustment_bounds():
+    from app.pipeline.features import compute_layout_features_from_text, compute_layout_adjustment
+    f1 = compute_layout_features_from_text("a\nb\nc\nd\ne\nf")
+    f2 = compute_layout_features_from_text("x\ny\nz")
+    adj = compute_layout_adjustment(f1, f2)
+    assert -0.10 <= adj <= 0.10
