@@ -288,3 +288,51 @@ def test_combine_scores_clamps_to_zero():
     from app.pipeline.scoring import combine_scores
     score = combine_scores(lexical=0.0, semantic=0.0, entity=0.0, layout_adjustment=-0.10)
     assert score == 0.0
+
+
+def test_build_explanation_keys():
+    from app.pipeline.explainability import build_explanation
+    result = build_explanation(
+        lexical=0.72, semantic=0.84, entity=0.65, final=0.75,
+        entities1={"dates": ["2024-01-15"], "amounts": ["$4,500.00"]},
+        entities2={"dates": ["2024-01-15"], "amounts": ["$4,050.00"]},
+        mode="text-image",
+    )
+    assert "scores" in result
+    assert "entities" in result
+    assert "mismatches" in result
+    assert "explanation" in result
+    assert "mode" in result
+
+
+def test_build_explanation_matched_entities():
+    from app.pipeline.explainability import build_explanation
+    result = build_explanation(
+        lexical=0.8, semantic=0.9, entity=1.0, final=0.9,
+        entities1={"amounts": ["$4,500.00"]},
+        entities2={"amounts": ["$4,500.00"]},
+        mode="text-text",
+    )
+    assert len(result["entities"]["matched"]) > 0
+
+
+def test_build_explanation_mismatches_detected():
+    from app.pipeline.explainability import build_explanation
+    result = build_explanation(
+        lexical=0.7, semantic=0.8, entity=0.5, final=0.7,
+        entities1={"amounts": ["$4,500.00"]},
+        entities2={"amounts": ["$4,050.00"]},
+        mode="text-text",
+    )
+    assert len(result["mismatches"]) > 0
+
+
+def test_render_html_returns_string():
+    from app.pipeline.explainability import build_explanation, render_html
+    result = build_explanation(
+        lexical=0.7, semantic=0.8, entity=0.6, final=0.72,
+        entities1={}, entities2={}, mode="image-image",
+    )
+    html = render_html(result)
+    assert isinstance(html, str)
+    assert "<html" in html.lower()
