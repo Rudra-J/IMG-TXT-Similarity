@@ -187,6 +187,10 @@ final = 0.40 × semantic + 0.35 × entity + 0.15 × lexical ± 0.10 × layout
 | 0.40 – 0.64 | Partially similar — related but significant divergence |
 | 0.00 – 0.39 | Largely dissimilar — different documents |
 
+> **Note:** The maximum score from content signals alone is 0.90 (semantic + entity + lexical weights
+> sum to 0.90). Scores above 0.90 require a positive layout adjustment. A score of 0.85–0.90 with
+> no layout bonus indicates near-perfect content similarity.
+
 Entity mismatches (different amounts, IDs, dates) pull scores below 0.65 even
 when semantic similarity is high.
 

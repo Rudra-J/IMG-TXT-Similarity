@@ -50,11 +50,23 @@ def _extract(path: str, is_image: bool):
     return prep.preprocess(raw_text), layout
 
 
+def _merge_entities(*entity_dicts):
+    """Merge multiple entity dicts by appending lists, not overwriting."""
+    merged = {}
+    for d in entity_dicts:
+        for key, values in d.items():
+            if key in merged:
+                merged[key] = merged[key] + [v for v in values if v not in merged[key]]
+            else:
+                merged[key] = list(values)
+    return merged
+
+
 def _run_pipeline(text1: str, layout1, text2: str, layout2, mode: str) -> dict:
     """Run the full similarity pipeline on two preprocessed texts."""
     # Merge regex (structured tokens) and spaCy (named entities) for each doc
-    e1 = {**regex_extractor.extract_entities(text1), **spacy_extractor.extract_entities(text1)}
-    e2 = {**regex_extractor.extract_entities(text2), **spacy_extractor.extract_entities(text2)}
+    e1 = _merge_entities(regex_extractor.extract_entities(text1), spacy_extractor.extract_entities(text1))
+    e2 = _merge_entities(regex_extractor.extract_entities(text2), spacy_extractor.extract_entities(text2))
 
     lex = similarity.compute_lexical_similarity(text1, text2)
     sem = similarity.compute_semantic_similarity(text1, text2)
