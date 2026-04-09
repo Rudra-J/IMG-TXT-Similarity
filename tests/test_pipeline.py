@@ -162,3 +162,55 @@ def test_spacy_extractor_empty_text():
     from app.entities.spacy_extractor import extract_entities
     result = extract_entities("")
     assert result == {"persons": [], "orgs": [], "locations": []}
+
+
+def test_local_embed_single_returns_vector():
+    from app.embeddings.local import embed_single
+    import numpy as np
+    vec = embed_single("This is a test sentence.")
+    assert isinstance(vec, np.ndarray)
+    assert vec.ndim == 1
+    assert len(vec) == 384  # MiniLM-L6-v2 output dimension
+
+
+def test_local_embed_single_is_normalized():
+    from app.embeddings.local import embed_single
+    import numpy as np
+    vec = embed_single("Normalize me.")
+    norm = np.linalg.norm(vec)
+    assert abs(norm - 1.0) < 1e-5
+
+
+def test_local_embed_similar_texts_score_higher():
+    from app.embeddings.local import embed_single
+    import numpy as np
+    v1 = embed_single("The invoice total is five thousand dollars.")
+    v2 = embed_single("Total amount due: $5,000.")
+    v3 = embed_single("The weather today is sunny and warm.")
+    sim_related = float(np.dot(v1, v2))
+    sim_unrelated = float(np.dot(v1, v3))
+    assert sim_related > sim_unrelated
+
+
+def test_voyage_embed_single_returns_vector():
+    """Requires VOYAGE_API_KEY env var. Skip if not set."""
+    import os, pytest
+    if not os.environ.get("VOYAGE_API_KEY"):
+        pytest.skip("VOYAGE_API_KEY not set")
+    from app.embeddings.claude_embed import embed_single
+    import numpy as np
+    vec = embed_single("This is a test sentence.")
+    assert isinstance(vec, np.ndarray)
+    assert vec.ndim == 1
+    assert len(vec) > 0
+
+
+def test_voyage_embed_single_is_normalized():
+    import os, pytest
+    if not os.environ.get("VOYAGE_API_KEY"):
+        pytest.skip("VOYAGE_API_KEY not set")
+    from app.embeddings.claude_embed import embed_single
+    import numpy as np
+    vec = embed_single("Normalize me.")
+    norm = np.linalg.norm(vec)
+    assert abs(norm - 1.0) < 1e-4
