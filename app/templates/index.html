@@ -1,1 +1,226 @@
-<!DOCTYPE html><html><body><h1>Multimodal Document Similarity</h1></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multimodal Document Similarity</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f7fafc; color: #1a202c; min-height: 100vh; }
+    .container { max-width: 900px; margin: 0 auto; padding: 40px 24px; }
+    header { margin-bottom: 36px; }
+    header h1 { font-size: 1.75rem; font-weight: 700; color: #2d3748; }
+    header p { color: #718096; margin-top: 6px; font-size: 0.95rem; }
+    .card { background: white; border-radius: 12px; padding: 28px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 24px; }
+    label { display: block; font-size: 0.875rem; font-weight: 600; color: #4a5568; margin-bottom: 6px; }
+    select, input[type=file] { width: 100%; padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 8px;
+      font-size: 0.95rem; background: white; color: #2d3748; cursor: pointer; }
+    select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.15); }
+    .upload-group { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
+    .upload-field { display: none; }
+    .upload-field.visible { display: block; }
+    .actions { display: flex; gap: 12px; margin-top: 24px; }
+    .btn { padding: 11px 24px; border-radius: 8px; font-size: 0.95rem; font-weight: 600;
+      cursor: pointer; border: none; transition: opacity 0.15s; }
+    .btn:hover { opacity: 0.88; }
+    .btn-primary { background: #667eea; color: white; }
+    .btn-secondary { background: #edf2f7; color: #4a5568; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    #status { font-size: 0.875rem; color: #718096; margin-top: 10px; min-height: 20px; }
+    #results { display: none; }
+    .section-title { font-size: 1rem; font-weight: 700; color: #2d3748; margin-bottom: 16px; }
+    .score-row { display: flex; align-items: center; gap: 12px; margin: 10px 0; }
+    .score-label { width: 90px; font-size: 0.875rem; color: #4a5568; text-transform: capitalize; font-weight: 500; }
+    .bar-bg { flex: 1; background: #edf2f7; border-radius: 6px; height: 24px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 6px; display: flex; align-items: center;
+      justify-content: flex-end; padding-right: 8px; font-size: 0.8rem; font-weight: 700; color: white;
+      transition: width 0.4s ease; }
+    .bar-val { width: 52px; font-size: 0.875rem; font-weight: 600; text-align: right; color: #2d3748; }
+    .green  { background: #38a169; }
+    .yellow { background: #d69e2e; }
+    .red    { background: #e53e3e; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th { background: #f7fafc; text-align: left; padding: 10px 12px; border-bottom: 2px solid #e2e8f0;
+         font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: #718096; }
+    td { padding: 9px 12px; border-bottom: 1px solid #edf2f7; vertical-align: top; color: #2d3748; }
+    .mismatch { background: #fff5f5; border-left: 3px solid #fc8181; padding: 8px 12px;
+                margin: 6px 0; border-radius: 2px; color: #c53030; font-size: 0.9rem; }
+    .explanation { background: #f0fff4; border-left: 4px solid #38a169; padding: 14px 18px;
+                   border-radius: 4px; line-height: 1.65; color: #22543d; }
+    .test-pass { color: #276749; font-weight: 600; }
+    .test-fail { color: #c53030; font-weight: 600; }
+    .divider { border: none; border-top: 1px solid #e2e8f0; margin: 20px 0; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Multimodal Document Similarity</h1>
+    <p>Compare text and image documents using OCR, semantic embeddings, entity extraction, and layout heuristics.</p>
+  </header>
+
+  <div class="card">
+    <label for="mode">Comparison Mode</label>
+    <select id="mode" onchange="updateFields()">
+      <option value="text-image">Text vs Image</option>
+      <option value="image-image">Image vs Image</option>
+      <option value="text-text">Text vs Text</option>
+    </select>
+
+    <div class="upload-group">
+      <div class="upload-field visible" id="field-text_file">
+        <label>Document 1 — Text file (.txt)</label>
+        <input type="file" id="text_file" accept=".txt">
+      </div>
+      <div class="upload-field visible" id="field-image_file">
+        <label>Document 2 — Image (.png / .jpg)</label>
+        <input type="file" id="image_file" accept="image/*">
+      </div>
+      <div class="upload-field" id="field-image_file_1">
+        <label>Document 1 — Image (.png / .jpg)</label>
+        <input type="file" id="image_file_1" accept="image/*">
+      </div>
+      <div class="upload-field" id="field-image_file_2">
+        <label>Document 2 — Image (.png / .jpg)</label>
+        <input type="file" id="image_file_2" accept="image/*">
+      </div>
+      <div class="upload-field" id="field-text_file_1">
+        <label>Document 1 — Text file (.txt)</label>
+        <input type="file" id="text_file_1" accept=".txt">
+      </div>
+      <div class="upload-field" id="field-text_file_2">
+        <label>Document 2 — Text file (.txt)</label>
+        <input type="file" id="text_file_2" accept=".txt">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="btn-compare" onclick="compare()">Compare Documents</button>
+      <button class="btn btn-secondary" id="btn-test" onclick="runTests()">Run Tests</button>
+    </div>
+    <div id="status"></div>
+  </div>
+
+  <div class="card" id="results">
+    <div class="section-title">Results</div>
+    <div id="results-content"></div>
+  </div>
+</div>
+
+<script>
+const FIELD_MAP = {
+  'text-image':  ['text_file', 'image_file'],
+  'image-image': ['image_file_1', 'image_file_2'],
+  'text-text':   ['text_file_1', 'text_file_2'],
+};
+const ALL_FIELDS = ['text_file','image_file','image_file_1','image_file_2','text_file_1','text_file_2'];
+
+function updateFields() {
+  const mode = document.getElementById('mode').value;
+  ALL_FIELDS.forEach(id => {
+    const el = document.getElementById('field-' + id);
+    if (el) el.classList.toggle('visible', FIELD_MAP[mode].includes(id));
+  });
+}
+
+function barColor(val) {
+  return val >= 0.75 ? 'green' : val >= 0.50 ? 'yellow' : 'red';
+}
+
+function renderScores(scores) {
+  return Object.entries(scores).map(([name, val]) => `
+    <div class="score-row">
+      <span class="score-label">${name}</span>
+      <div class="bar-bg">
+        <div class="bar-fill ${barColor(val)}" style="width:${Math.min(Math.round(val*100),100)}%">
+          ${Math.round(val*100)}%
+        </div>
+      </div>
+      <span class="bar-val">${val.toFixed(4)}</span>
+    </div>`).join('');
+}
+
+function renderResult(data) {
+  const e = data.entities;
+  const mismatches = (data.mismatches||[]).map(m=>`<div class="mismatch">${m}</div>`).join('');
+  return `
+    <p style="color:#718096;font-size:0.875rem;margin-bottom:16px">Mode: <strong>${data.mode}</strong></p>
+    <div class="section-title" style="margin-top:0">Scores</div>
+    ${renderScores(data.scores)}
+    <hr class="divider">
+    <div class="section-title">Entities</div>
+    <table>
+      <tr><th>Matched</th><th>Doc 1 Only</th><th>Doc 2 Only</th></tr>
+      <tr>
+        <td>${e.matched.join(', ')||'—'}</td>
+        <td>${e.only_in_doc1.join(', ')||'—'}</td>
+        <td>${e.only_in_doc2.join(', ')||'—'}</td>
+      </tr>
+    </table>
+    ${mismatches ? `<hr class="divider"><div class="section-title">Mismatches</div>${mismatches}` : ''}
+    <hr class="divider">
+    <div class="section-title">Explanation</div>
+    <div class="explanation">${data.explanation}</div>`;
+}
+
+function renderTestResults(data) {
+  const rows = data.results.map(r=>`
+    <tr>
+      <td>${r.label}</td><td>${r.mode}</td>
+      <td>${r.final_score.toFixed(4)}</td>
+      <td>${r.expected_range}</td>
+      <td class="${r.passed?'test-pass':'test-fail'}">${r.passed?'PASS':'FAIL'}</td>
+    </tr>`).join('');
+  const summary = data.all_passed
+    ? '<p style="color:#276749;font-weight:600;margin-bottom:12px">All tests passed.</p>'
+    : '<p style="color:#c53030;font-weight:600;margin-bottom:12px">Some tests failed.</p>';
+  return `${summary}<table>
+    <tr><th>Pair</th><th>Mode</th><th>Score</th><th>Expected</th><th>Result</th></tr>
+    ${rows}</table>`;
+}
+
+function setStatus(msg) { document.getElementById('status').textContent = msg; }
+
+async function compare() {
+  const mode = document.getElementById('mode').value;
+  const formData = new FormData();
+  formData.append('mode', mode);
+  for (const id of FIELD_MAP[mode]) {
+    const el = document.getElementById(id);
+    if (!el.files[0]) { setStatus('Please select a file for ' + id.replace(/_/g,' ') + '.'); return; }
+    formData.append(id, el.files[0]);
+  }
+  setStatus('Comparing documents…');
+  document.getElementById('btn-compare').disabled = true;
+  try {
+    const resp = await fetch('/compare', { method: 'POST', body: formData });
+    const data = await resp.json();
+    if (!resp.ok) { setStatus('Error: ' + (data.detail || resp.statusText)); return; }
+    document.getElementById('results-content').innerHTML = renderResult(data);
+    document.getElementById('results').style.display = 'block';
+    setStatus('');
+  } catch(err) {
+    setStatus('Request failed: ' + err.message);
+  } finally {
+    document.getElementById('btn-compare').disabled = false;
+  }
+}
+
+async function runTests() {
+  setStatus('Running synthetic test suite…');
+  document.getElementById('btn-test').disabled = true;
+  try {
+    const resp = await fetch('/test');
+    const data = await resp.json();
+    document.getElementById('results-content').innerHTML = renderTestResults(data);
+    document.getElementById('results').style.display = 'block';
+    setStatus('');
+  } catch(err) {
+    setStatus('Request failed: ' + err.message);
+  } finally {
+    document.getElementById('btn-test').disabled = false;
+  }
+}
+</script>
+</body>
+</html>
