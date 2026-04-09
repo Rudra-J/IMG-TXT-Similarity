@@ -263,3 +263,28 @@ def test_entity_similarity_no_overlap():
 def test_entity_similarity_empty():
     from app.pipeline.similarity import compute_entity_similarity
     assert compute_entity_similarity({}, {}) == 1.0
+
+
+def test_combine_scores_output_in_range():
+    from app.pipeline.scoring import combine_scores
+    score = combine_scores(lexical=0.7, semantic=0.8, entity=0.9, layout_adjustment=0.05)
+    assert 0.0 <= score <= 1.0
+
+
+def test_combine_scores_weights():
+    from app.pipeline.scoring import combine_scores
+    # 0.40*1.0 + 0.35*1.0 + 0.15*1.0 = 0.90
+    score = combine_scores(lexical=1.0, semantic=1.0, entity=1.0, layout_adjustment=0.0)
+    assert abs(score - 0.90) < 1e-6
+
+
+def test_combine_scores_clamps_to_one():
+    from app.pipeline.scoring import combine_scores
+    score = combine_scores(lexical=1.0, semantic=1.0, entity=1.0, layout_adjustment=0.10)
+    assert score == 1.0
+
+
+def test_combine_scores_clamps_to_zero():
+    from app.pipeline.scoring import combine_scores
+    score = combine_scores(lexical=0.0, semantic=0.0, entity=0.0, layout_adjustment=-0.10)
+    assert score == 0.0
