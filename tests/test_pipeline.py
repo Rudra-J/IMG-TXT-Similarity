@@ -106,3 +106,59 @@ def test_compute_layout_adjustment_bounds():
     f2 = compute_layout_features_from_text("x\ny\nz")
     adj = compute_layout_adjustment(f1, f2)
     assert -0.10 <= adj <= 0.10
+
+
+def test_regex_extractor_finds_amount():
+    from app.entities.regex_extractor import extract_entities
+    result = extract_entities("Total due: $4,500.00")
+    assert any("4,500.00" in a or "4500" in a for a in result["amounts"])
+
+
+def test_regex_extractor_finds_iso_date():
+    from app.entities.regex_extractor import extract_entities
+    result = extract_entities("Invoice date: 2024-01-15")
+    assert any("2024-01-15" in d for d in result["dates"])
+
+
+def test_regex_extractor_finds_slash_date():
+    from app.entities.regex_extractor import extract_entities
+    result = extract_entities("Due date: 01/15/2024")
+    assert len(result["dates"]) > 0
+
+
+def test_regex_extractor_finds_invoice_id():
+    from app.entities.regex_extractor import extract_entities
+    result = extract_entities("Reference: INV-2024-001")
+    assert any("INV-2024-001" in i for i in result["ids"])
+
+
+def test_regex_extractor_empty_text():
+    from app.entities.regex_extractor import extract_entities
+    result = extract_entities("")
+    assert result == {"dates": [], "amounts": [], "ids": []}
+
+
+def test_spacy_extractor_finds_org():
+    from app.entities.spacy_extractor import extract_entities
+    result = extract_entities("Bill to: Acme Corporation. Contact: John Smith.")
+    assert any("Acme" in org for org in result["orgs"]) or len(result["orgs"]) > 0
+
+
+def test_spacy_extractor_finds_person():
+    from app.entities.spacy_extractor import extract_entities
+    result = extract_entities("Prepared by: John Smith, Senior Accountant.")
+    assert any("John" in p or "Smith" in p for p in result["persons"])
+
+
+def test_spacy_extractor_returns_correct_keys():
+    from app.entities.spacy_extractor import extract_entities
+    result = extract_entities("Hello world")
+    assert "persons" in result
+    assert "orgs" in result
+    assert "locations" in result
+
+
+def test_spacy_extractor_empty_text():
+    from app.entities.spacy_extractor import extract_entities
+    result = extract_entities("")
+    assert result == {"persons": [], "orgs": [], "locations": []}
