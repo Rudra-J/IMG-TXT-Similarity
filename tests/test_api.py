@@ -85,3 +85,51 @@ def test_compare_text_image_mode():
     body = response.json()
     assert "scores" in body
     assert 0.0 <= body["scores"]["final"] <= 1.0
+
+
+def test_get_test_returns_results():
+    client = get_client()
+    response = client.get("/test")
+    assert response.status_code == 200
+    body = response.json()
+    assert "results" in body
+    assert len(body["results"]) == 3
+
+
+def test_get_test_has_pass_fail():
+    client = get_client()
+    response = client.get("/test")
+    body = response.json()
+    for result in body["results"]:
+        assert "label" in result
+        assert "mode" in result
+        assert "final_score" in result
+        assert "passed" in result
+
+
+def test_evaluate_returns_rmse():
+    client = get_client()
+    payload = [
+        {
+            "mode": "text-text",
+            "doc1_text": "Invoice INV-001 total $4500",
+            "doc2_text": "Invoice INV-001 amount $4500",
+            "expected": 0.9,
+        },
+        {
+            "mode": "text-text",
+            "doc1_text": "Invoice INV-001 total $4500",
+            "doc2_text": "The weather is sunny today in London",
+            "expected": 0.1,
+        },
+    ]
+    response = client.post("/evaluate", json=payload)
+    assert response.status_code == 200
+    body = response.json()
+    assert "rmse" in body
+    assert "pairs" in body
+    assert len(body["pairs"]) == 2
+    for pair in body["pairs"]:
+        assert "actual" in pair
+        assert "expected" in pair
+        assert "error" in pair
