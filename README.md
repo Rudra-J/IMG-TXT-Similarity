@@ -1,7 +1,7 @@
 # Multimodal Document Similarity System
 
 A lightweight FastAPI service that compares two documents — across text and image
-formats — using OCR, semantic embeddings, entity extraction, and layout heuristics.
+formats — using OCR, semantic embeddings, and layout heuristics.
 Returns a scored similarity result with detailed explainability output.
 
 ## Problem Framing
@@ -32,33 +32,29 @@ flowchart TD
     subgraph FE["Feature Extraction"]
         A["Semantic Embeddings\nMiniLM-L6-v2 / Voyage-3"]
         B["TF-IDF Vectors"]
-        C["Regex Entities\ndates · amounts · IDs"]
-        D["spaCy NER\nPERSON · ORG · GPE"]
         E["Layout Heuristics\ntop / middle / bottom zones"]
     end
 
     subgraph SC["Similarity Computation"]
         F["semantic_similarity()"]
         G["lexical_similarity()"]
-        H["entity_similarity()"]
         I["layout_adjustment()"]
     end
 
-    FINAL["combine_scores()\n0.40 × semantic + 0.35 × entity + 0.15 × lexical ± 0.10 × layout"]
+    FINAL["combine_scores()\n0.75 × semantic + 0.15 × lexical ± 0.10 × layout"]
 
     subgraph OUT["Explainability Output"]
-        J["JSON\nscores · entities · mismatches · explanation"]
-        K["HTML Report\nscore bars · entity table · mismatch highlights"]
+        J["JSON\nscores · explanation"]
+        K["HTML Report\nscore bars · explanation"]
     end
 
     M -->|"text-image / text-text"| TXT --> PRE
     M -->|"text-image / image-image"| IMG --> OCR --> PRE
-    PRE --> A & B & C & D & E
+    PRE --> A & B & E
     A --> F
     B --> G
-    C & D --> H
     E --> I
-    F & G & H & I --> FINAL
+    F & G & I --> FINAL
     FINAL --> J & K
 ```
 
@@ -90,16 +86,9 @@ Optional: `?format=html` for rendered HTML report.
   "scores": {
     "lexical": 0.72,
     "semantic": 0.88,
-    "entity": 0.65,
-    "final": 0.74
+    "final": 0.78
   },
-  "entities": {
-    "matched": ["inv-2024-001", "2024-01-15", "$4,500.00"],
-    "only_in_doc1": ["net-30"],
-    "only_in_doc2": []
-  },
-  "mismatches": [],
-  "explanation": "The documents are moderately similar (final score: 0.7400)..."
+  "explanation": "The documents are moderately similar (final score: 0.7800)..."
 }
 ```
 
@@ -109,7 +98,6 @@ Optional: `?format=html` for rendered HTML report.
 
 ```bash
 pip install -r requirements.txt
-python -m spacy download en_core_web_sm
 
 # Start the server (local MiniLM, no API key needed)
 uvicorn app.main:app --reload
@@ -167,11 +155,6 @@ Local MiniLM smoke test results:
 - Unrelated document score: 0.0736
 - Correctly ranks similar > unrelated ✓
 
-### Why Entity Matching?
-Semantic similarity cannot detect that $4,500 ≠ $4,050. Two invoices with one
-transposed digit score > 0.95 on embeddings but are substantively different for
-validation. Entity overlap (0.35 weight) ensures factual discrepancies dominate.
-
 ### Why Lightweight Layout Heuristics?
 LayoutLM and similar models require GPU and large model weights. Our zone-based
 heuristics (top/middle/bottom) capture structural alignment at near-zero compute
@@ -183,13 +166,12 @@ The ±0.10 cap ensures layout nudges but never overrides content signals.
 ## Score Weights
 
 ```
-final = 0.40 × semantic + 0.35 × entity + 0.15 × lexical ± 0.10 × layout
+final = 0.75 × semantic + 0.15 × lexical ± 0.10 × layout
 ```
 
 | Signal | Weight | Justification |
 |---|---|---|
-| Semantic | 0.40 | Most robust — handles paraphrasing, OCR noise, synonyms |
-| Entity | 0.35 | Factual correctness cannot be overridden by fluency |
+| Semantic | 0.75 | Most robust — handles paraphrasing, OCR noise, synonyms |
 | Lexical | 0.15 | Useful for exact matches; brittle against rephrasing |
 | Layout | ±0.10 | Structural nudge; capped to prevent dominating score |
 
@@ -204,12 +186,9 @@ final = 0.40 × semantic + 0.35 × entity + 0.15 × lexical ± 0.10 × layout
 | 0.40 – 0.64 | Partially similar — related but significant divergence |
 | 0.00 – 0.39 | Largely dissimilar — different documents |
 
-> **Note:** The maximum score from content signals alone is 0.90 (semantic + entity + lexical weights
+> **Note:** The maximum score from content signals alone is 0.90 (semantic + lexical weights
 > sum to 0.90). Scores above 0.90 require a positive layout adjustment. A score of 0.85–0.90 with
 > no layout bonus indicates near-perfect content similarity.
-
-Entity mismatches (different amounts, IDs, dates) pull scores below 0.65 even
-when semantic similarity is high.
 
 ---
 
@@ -222,10 +201,9 @@ when semantic similarity is high.
 - Fast enough for real-time API use; not for bulk batch processing
 
 ### OCR Limitations
-- Character misreads (0↔O, 1↔I) corrupt entity extraction
+- Character misreads (0↔O, 1↔I) can reduce lexical similarity
 - Multi-column layouts are flattened, disrupting layout heuristics
 - Noisy, low-contrast, or skewed images degrade recall significantly
-- OCR errors propagate: a misread ID causes entity similarity to drop
 
 ### Heuristic Limitations
 - Zone-based layout is a coarse approximation (no pixel-level spatial reasoning)
@@ -238,9 +216,8 @@ when semantic similarity is high.
 
 1. OCR errors propagate through the entire pipeline
 2. Layout heuristics assume linear, top-to-bottom document structure
-3. Entity regex covers common formats; rare or regional formats may be missed
-4. Voyage-3 requires API connectivity and is billed per token
-5. No persistent storage — results are not saved between requests
+3. Voyage-3 requires API connectivity and is billed per token
+4. No persistent storage — results are not saved between requests
 
 ---
 
@@ -249,5 +226,4 @@ when semantic similarity is high.
 - **LayoutLM / LayoutLMv3:** Full layout-aware transformer using bounding boxes
 - **Vision-language models (GPT-4V, Claude):** Direct image understanding without OCR
 - **Better OCR:** Google Cloud Vision or document-specific preprocessing pipelines
-- **Document-specific entity patterns:** Specialized extractors per document type
 - **Async batch processing:** Queue-based pipeline for bulk document comparison
