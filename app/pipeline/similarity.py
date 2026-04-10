@@ -1,10 +1,9 @@
 """
-Similarity computation module: three complementary similarity signals.
+Similarity computation module: two complementary similarity signals.
 
 Each signal captures a different aspect of document similarity:
 - Lexical: exact vocabulary overlap (brittle — fails on paraphrasing)
 - Semantic: meaning similarity (robust — handles synonyms and paraphrasing)
-- Entity: factual accuracy (critical — catches amount/ID mismatches)
 
 The active embedding backend is selected once based on the embed-off results
 in app/embeddings/evaluator.py. Change ACTIVE_EMBEDDER to 'local' or 'voyage'
@@ -13,7 +12,6 @@ after running the evaluator.
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity as sklearn_cosine
 import numpy as np
-from typing import Dict, List
 
 # --- EMBED-OFF RESULT ---
 # Set to 'local' (MiniLM) or 'voyage' (Voyage-3) based on evaluator.py output.
@@ -77,38 +75,3 @@ def compute_semantic_similarity(text1: str, text2: str) -> float:
     return float(np.clip(np.dot(e1, e2), 0.0, 1.0))
 
 
-def compute_entity_similarity(
-    entities1: Dict[str, List[str]], entities2: Dict[str, List[str]]
-) -> float:
-    """
-    Jaccard-style overlap ratio across all entity categories.
-
-    Why critical: semantic similarity cannot distinguish $4,500 from $4,050.
-    Two invoices with one digit different in the amount are NOT similar for
-    validation purposes, but their text embeddings would score > 0.95.
-
-    This metric ensures factual discrepancies dominate the final score
-    (entity weight = 0.35, second highest after semantic at 0.40).
-
-    Args:
-        entities1, entities2: Entity dicts from regex_extractor or spacy_extractor.
-
-    Returns:
-        Float in [0.0, 1.0]. Returns 1.0 if both dicts are empty.
-    """
-    all_keys = set(entities1.keys()) | set(entities2.keys())
-    if not all_keys:
-        return 1.0
-
-    total_intersection = 0
-    total_union = 0
-
-    for key in all_keys:
-        set1 = {str(e).lower().strip() for e in entities1.get(key, [])}
-        set2 = {str(e).lower().strip() for e in entities2.get(key, [])}
-        if not set1 and not set2:
-            continue
-        total_intersection += len(set1 & set2)
-        total_union += len(set1 | set2)
-
-    return total_intersection / total_union if total_union > 0 else 1.0

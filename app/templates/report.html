@@ -44,23 +44,6 @@
   </div>
   {% endfor %}
 
-  <h2>Entities</h2>
-  <table>
-    <tr><th>Matched</th><th>Doc 1 Only</th><th>Doc 2 Only</th></tr>
-    <tr>
-      <td>{{ entities.matched | join(', ') or '—' }}</td>
-      <td>{{ entities.only_in_doc1 | join(', ') or '—' }}</td>
-      <td>{{ entities.only_in_doc2 | join(', ') or '—' }}</td>
-    </tr>
-  </table>
-
-  {% if mismatches %}
-  <h2>Mismatches</h2>
-  {% for m in mismatches %}
-  <div class="mismatch-item">{{ m }}</div>
-  {% endfor %}
-  {% endif %}
-
   <h2>Explanation</h2>
   <div class="explanation-box">{{ explanation }}</div>
 </body>

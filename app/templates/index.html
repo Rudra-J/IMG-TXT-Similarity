@@ -43,8 +43,6 @@
     th { background: #f7fafc; text-align: left; padding: 10px 12px; border-bottom: 2px solid #e2e8f0;
          font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: #718096; }
     td { padding: 9px 12px; border-bottom: 1px solid #edf2f7; vertical-align: top; color: #2d3748; }
-    .mismatch { background: #fff5f5; border-left: 3px solid #fc8181; padding: 8px 12px;
-                margin: 6px 0; border-radius: 2px; color: #c53030; font-size: 0.9rem; }
     .explanation { background: #f0fff4; border-left: 4px solid #38a169; padding: 14px 18px;
                    border-radius: 4px; line-height: 1.65; color: #22543d; }
     .test-pass { color: #276749; font-weight: 600; }
@@ -56,7 +54,7 @@
 <div class="container">
   <header>
     <h1>Multimodal Document Similarity</h1>
-    <p>Compare text and image documents using OCR, semantic embeddings, entity extraction, and layout heuristics.</p>
+    <p>Compare text and image documents using OCR, semantic embeddings, and layout heuristics.</p>
   </header>
 
   <div class="card">
@@ -141,23 +139,10 @@ function renderScores(scores) {
 }
 
 function renderResult(data) {
-  const e = data.entities;
-  const mismatches = (data.mismatches||[]).map(m=>`<div class="mismatch">${m}</div>`).join('');
   return `
     <p style="color:#718096;font-size:0.875rem;margin-bottom:16px">Mode: <strong>${data.mode}</strong></p>
     <div class="section-title" style="margin-top:0">Scores</div>
     ${renderScores(data.scores)}
-    <hr class="divider">
-    <div class="section-title">Entities</div>
-    <table>
-      <tr><th>Matched</th><th>Doc 1 Only</th><th>Doc 2 Only</th></tr>
-      <tr>
-        <td>${e.matched.join(', ')||'—'}</td>
-        <td>${e.only_in_doc1.join(', ')||'—'}</td>
-        <td>${e.only_in_doc2.join(', ')||'—'}</td>
-      </tr>
-    </table>
-    ${mismatches ? `<hr class="divider"><div class="section-title">Mismatches</div>${mismatches}` : ''}
     <hr class="divider">
     <div class="section-title">Explanation</div>
     <div class="explanation">${data.explanation}</div>`;

@@ -2,15 +2,14 @@
 OCR module: extracts text and line structure from images using EasyOCR.
 
 OCR Limitations (important for downstream accuracy):
-- Character misreads: '0' vs 'O', '1' vs 'I', '5' vs 'S' are common. These
-  corrupt entity extraction (e.g., invoice ID "INV-001" becomes "INV-OO1").
+- Character misreads: '0' vs 'O', '1' vs 'I', '5' vs 'S' are common.
 - Structure loss: table rows and columns are flattened to a single line order.
   Column alignment is not preserved — multi-column invoices become garbled.
 - Low-quality images: blur, skew, low contrast significantly degrade recall.
   Pre-processing (contrast enhancement, deskewing) would help but is out of scope.
 
-These limitations propagate into similarity scoring: OCR errors reduce entity
-match rates and introduce false lexical differences even between identical documents.
+These limitations propagate into similarity scoring: OCR errors introduce false
+lexical differences even between identical documents.
 """
 import easyocr
 from typing import List, Tuple

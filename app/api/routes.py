@@ -8,7 +8,6 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
-from app.entities import regex_extractor, spacy_extractor
 from tests.synthetic_pairs import SYNTHETIC_PAIRS
 from app.pipeline import explainability, features, ocr
 from app.pipeline import preprocess as prep
@@ -50,31 +49,14 @@ def _extract(path: str, is_image: bool):
     return prep.preprocess(raw_text), layout
 
 
-def _merge_entities(*entity_dicts):
-    """Merge multiple entity dicts by appending lists, not overwriting."""
-    merged = {}
-    for d in entity_dicts:
-        for key, values in d.items():
-            if key in merged:
-                merged[key] = merged[key] + [v for v in values if v not in merged[key]]
-            else:
-                merged[key] = list(values)
-    return merged
-
-
 def _run_pipeline(text1: str, layout1, text2: str, layout2, mode: str) -> dict:
     """Run the full similarity pipeline on two preprocessed texts."""
-    # Merge regex (structured tokens) and spaCy (named entities) for each doc
-    e1 = _merge_entities(regex_extractor.extract_entities(text1), spacy_extractor.extract_entities(text1))
-    e2 = _merge_entities(regex_extractor.extract_entities(text2), spacy_extractor.extract_entities(text2))
-
     lex = similarity.compute_lexical_similarity(text1, text2)
     sem = similarity.compute_semantic_similarity(text1, text2)
-    ent = similarity.compute_entity_similarity(e1, e2)
     layout_adj = features.compute_layout_adjustment(layout1, layout2)
-    final = scoring.combine_scores(lex, sem, ent, layout_adj)
+    final = scoring.combine_scores(lex, sem, layout_adj)
 
-    return explainability.build_explanation(lex, sem, ent, final, e1, e2, mode)
+    return explainability.build_explanation(lex, sem, final, mode)
 
 
 @router.get("/", response_class=HTMLResponse)

@@ -44,7 +44,7 @@ def test_preprocess_normalizes_whitespace():
 
 def test_preprocess_preserves_invoice_id():
     from app.pipeline.preprocess import preprocess
-    # IDs like INV-001 must survive preprocessing — they are critical entities
+    # IDs like INV-001 must survive preprocessing for lexical matching
     result = preprocess("Invoice INV-001 due")
     assert "inv-001" in result
 
@@ -107,61 +107,6 @@ def test_compute_layout_adjustment_bounds():
     adj = compute_layout_adjustment(f1, f2)
     assert -0.10 <= adj <= 0.10
 
-
-def test_regex_extractor_finds_amount():
-    from app.entities.regex_extractor import extract_entities
-    result = extract_entities("Total due: $4,500.00")
-    assert any("4,500.00" in a or "4500" in a for a in result["amounts"])
-
-
-def test_regex_extractor_finds_iso_date():
-    from app.entities.regex_extractor import extract_entities
-    result = extract_entities("Invoice date: 2024-01-15")
-    assert any("2024-01-15" in d for d in result["dates"])
-
-
-def test_regex_extractor_finds_slash_date():
-    from app.entities.regex_extractor import extract_entities
-    result = extract_entities("Due date: 01/15/2024")
-    assert len(result["dates"]) > 0
-
-
-def test_regex_extractor_finds_invoice_id():
-    from app.entities.regex_extractor import extract_entities
-    result = extract_entities("Reference: INV-2024-001")
-    assert any("INV-2024-001" in i for i in result["ids"])
-
-
-def test_regex_extractor_empty_text():
-    from app.entities.regex_extractor import extract_entities
-    result = extract_entities("")
-    assert result == {"dates": [], "amounts": [], "ids": []}
-
-
-def test_spacy_extractor_finds_org():
-    from app.entities.spacy_extractor import extract_entities
-    result = extract_entities("Bill to: Acme Corporation. Contact: John Smith.")
-    assert any("Acme" in org for org in result["orgs"]) or len(result["orgs"]) > 0
-
-
-def test_spacy_extractor_finds_person():
-    from app.entities.spacy_extractor import extract_entities
-    result = extract_entities("Prepared by: John Smith, Senior Accountant.")
-    assert any("John" in p or "Smith" in p for p in result["persons"])
-
-
-def test_spacy_extractor_returns_correct_keys():
-    from app.entities.spacy_extractor import extract_entities
-    result = extract_entities("Hello world")
-    assert "persons" in result
-    assert "orgs" in result
-    assert "locations" in result
-
-
-def test_spacy_extractor_empty_text():
-    from app.entities.spacy_extractor import extract_entities
-    result = extract_entities("")
-    assert result == {"persons": [], "orgs": [], "locations": []}
 
 
 def test_local_embed_single_returns_vector():
@@ -247,92 +192,42 @@ def test_semantic_similarity_related_scores_higher_than_unrelated():
     assert sim_related > sim_unrelated
 
 
-def test_entity_similarity_full_overlap():
-    from app.pipeline.similarity import compute_entity_similarity
-    e = {"dates": ["2024-01-15"], "amounts": ["$4,500.00"], "ids": ["INV-001"]}
-    assert compute_entity_similarity(e, e) == 1.0
-
-
-def test_entity_similarity_no_overlap():
-    from app.pipeline.similarity import compute_entity_similarity
-    e1 = {"amounts": ["$4,500.00"]}
-    e2 = {"amounts": ["$1,000.00"]}
-    assert compute_entity_similarity(e1, e2) == 0.0
-
-
-def test_entity_similarity_empty():
-    from app.pipeline.similarity import compute_entity_similarity
-    assert compute_entity_similarity({}, {}) == 1.0
-
-
 def test_combine_scores_output_in_range():
     from app.pipeline.scoring import combine_scores
-    score = combine_scores(lexical=0.7, semantic=0.8, entity=0.9, layout_adjustment=0.05)
+    score = combine_scores(lexical=0.7, semantic=0.8, layout_adjustment=0.05)
     assert 0.0 <= score <= 1.0
 
 
 def test_combine_scores_weights():
     from app.pipeline.scoring import combine_scores
-    # 0.40*1.0 + 0.35*1.0 + 0.15*1.0 = 0.90
-    score = combine_scores(lexical=1.0, semantic=1.0, entity=1.0, layout_adjustment=0.0)
+    # 0.75*1.0 + 0.15*1.0 = 0.90
+    score = combine_scores(lexical=1.0, semantic=1.0, layout_adjustment=0.0)
     assert abs(score - 0.90) < 1e-6
 
 
 def test_combine_scores_clamps_to_one():
     from app.pipeline.scoring import combine_scores
-    score = combine_scores(lexical=1.0, semantic=1.0, entity=1.0, layout_adjustment=0.10)
+    score = combine_scores(lexical=1.0, semantic=1.0, layout_adjustment=0.10)
     assert score == 1.0
 
 
 def test_combine_scores_clamps_to_zero():
     from app.pipeline.scoring import combine_scores
-    score = combine_scores(lexical=0.0, semantic=0.0, entity=0.0, layout_adjustment=-0.10)
+    score = combine_scores(lexical=0.0, semantic=0.0, layout_adjustment=-0.10)
     assert score == 0.0
 
 
 def test_build_explanation_keys():
     from app.pipeline.explainability import build_explanation
-    result = build_explanation(
-        lexical=0.72, semantic=0.84, entity=0.65, final=0.75,
-        entities1={"dates": ["2024-01-15"], "amounts": ["$4,500.00"]},
-        entities2={"dates": ["2024-01-15"], "amounts": ["$4,050.00"]},
-        mode="text-image",
-    )
+    result = build_explanation(lexical=0.72, semantic=0.84, final=0.75, mode="text-image")
     assert "scores" in result
-    assert "entities" in result
-    assert "mismatches" in result
     assert "explanation" in result
     assert "mode" in result
 
 
-def test_build_explanation_matched_entities():
-    from app.pipeline.explainability import build_explanation
-    result = build_explanation(
-        lexical=0.8, semantic=0.9, entity=1.0, final=0.9,
-        entities1={"amounts": ["$4,500.00"]},
-        entities2={"amounts": ["$4,500.00"]},
-        mode="text-text",
-    )
-    assert len(result["entities"]["matched"]) > 0
-
-
-def test_build_explanation_mismatches_detected():
-    from app.pipeline.explainability import build_explanation
-    result = build_explanation(
-        lexical=0.7, semantic=0.8, entity=0.5, final=0.7,
-        entities1={"amounts": ["$4,500.00"]},
-        entities2={"amounts": ["$4,050.00"]},
-        mode="text-text",
-    )
-    assert len(result["mismatches"]) > 0
-
-
 def test_render_html_returns_string():
     from app.pipeline.explainability import build_explanation, render_html
-    result = build_explanation(
-        lexical=0.7, semantic=0.8, entity=0.6, final=0.72,
-        entities1={}, entities2={}, mode="image-image",
-    )
+    result = build_explanation(lexical=0.7, semantic=0.8, final=0.72, mode="image-image")
     html = render_html(result)
     assert isinstance(html, str)
     assert "<html" in html.lower()

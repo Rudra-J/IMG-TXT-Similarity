@@ -10,7 +10,7 @@ Trade-offs:
 - We normalize unicode (NFKC): converts curly quotes, half-width chars, etc.
 - We collapse whitespace: OCR often introduces extra spaces between characters.
 - We preserve numbers, dashes, dots, commas, $, /: these form dates, amounts,
-  and IDs. Stripping them would silently destroy entity extraction.
+  and IDs. Stripping them would harm lexical matching.
 - We do NOT stem or lemmatize: stemming would mangle ID patterns like INV-001.
 - We do NOT remove stopwords: they contribute to TF-IDF and layout coherence.
 """
